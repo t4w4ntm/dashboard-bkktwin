@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BangkokTwin • Dashboard</title>
+  <!-- Fonts: Prompt & Noto Sans Thai for cohesive Thai/EN typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@500;700&family=Prompt:wght@600;700;800;900&family=Audiowide&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Dots&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+</head>
+<body>
+  <a href="#main" class="skip-link">ข้ามไปยังเนื้อหาหลัก</a>
+  <!-- Interactive Animated Pixel Background -->
+  <div class="pixel-bg" id="pixelBg">
+    <div class="bg-image" aria-hidden="true"></div>
+    <div class="pixel-particle pixel-1"></div>
+    <div class="pixel-particle pixel-2"></div>
+    <div class="pixel-particle pixel-3"></div>
+    <div class="pixel-particle pixel-4"></div>
+    <div class="pixel-particle pixel-5"></div>
+    <div class="pixel-particle pixel-6"></div>
+    <div class="pixel-particle pixel-7"></div>
+    <div class="pixel-particle pixel-8"></div>
+    
+    <!-- Interactive Background Layers -->
+    <div class="bg-layer bg-layer-1" id="bgLayer1"></div>
+    <div class="bg-layer bg-layer-2" id="bgLayer2"></div>
+    <div class="bg-layer bg-layer-3" id="bgLayer3"></div>
+    
+    <!-- Mouse Trail -->
+    <canvas id="mouseTrail" class="mouse-trail"></canvas>
+  </div>
+
+  <header class="topbar" role="banner">
+    <div class="brand">BangkokTwin</div>
+    <div class="center">Dashboard</div>
+    <div class="status">
+      <span id="clock"></span>
+    </div>
+  </header>
+
+
+
+  <main id="main" class="grid" role="main">
+    <h1 class="visually-hidden">BangkokTwin Realtime Environment Dashboard</h1>
+    <!-- Air Quality -->
+    <section class="card" id="air-quality" aria-labelledby="h-air">
+      <h2 class="card-title" id="h-air">» Air Quality</h2>
+      <div class="section-controls">
+        <label for="viewDatePM" class="date-label">View:</label>
+        <input type="date" id="viewDatePM" class="date-input" />
+        <button class="btn" id="btnTodayPM">Today</button>
+        <span id="viewingTagPM" class="viewing-tag">live</span>
+      </div>
+      <div class="aq-row">
+        <div class="aq-col">
+          <div class="label">Klong San</div>
+          <div class="value"><span id="pmKlong">0.0</span> <small>μg/m³</small></div>
+          <div class="gauge" data-value="0" id="gaugeKlong">
+            <svg viewBox="0 0 100 60" class="gauge-svg">
+              <path d="M10,50 A40,40 0 0,1 90,50" class="gauge-track"/>
+              <path d="M10,50 A40,40 0 0,1 90,50" class="gauge-fill" id="fillKlong"/>
+              <circle cx="50" cy="50" r="6" class="gauge-knob"/>
+            </svg>
+            <div class="gauge-text"><b id="aqiKlong">000</b><span>AQI</span></div>
+          </div>
+          <div class="status-text" id="statusKlong">Good</div>
+        </div>
+
+        <div class="aq-col">
+          <div class="label">Thon Buri</div>
+          <div class="value"><span id="pmThon">0.0</span> <small>μg/m³</small></div>
+          <div class="gauge" data-value="0" id="gaugeThon">
+            <svg viewBox="0 0 100 60" class="gauge-svg">
+              <path d="M10,50 A40,40 0 0,1 90,50" class="gauge-track"/>
+              <path d="M10,50 A40,40 0 0,1 90,50" class="gauge-fill" id="fillThon"/>
+              <circle cx="50" cy="50" r="6" class="gauge-knob"/>
+            </svg>
+            <div class="gauge-text"><b id="aqiThon">000</b><span>AQI</span></div>
+          </div>
+          <div class="status-text" id="statusThon">Good</div>
+        </div>
+
+        <div class="aq-col">
+          <div class="label">Bang Rak</div>
+          <div class="value"><span id="pmBang">0.0</span> <small>μg/m³</small></div>
+          <div class="gauge" data-value="0" id="gaugeBang">
+            <svg viewBox="0 0 100 60" class="gauge-svg">
+              <path d="M10,50 A40,40 0 0,1 90,50" class="gauge-track"/>
+              <path d="M10,50 A40,40 0 0,1 90,50" class="gauge-fill" id="fillBang"/>
+              <circle cx="50" cy="50" r="6" class="gauge-knob"/>
+            </svg>
+            <div class="gauge-text"><b id="aqiBang">000</b><span>AQI</span></div>
+          </div>
+          <div class="status-text" id="statusBang">Good</div>
+        </div>
+      </div>
+      <!-- 24H Trend for PM2.5 (3 districts) -->
+      <div class="trend">
+        <div class="trend-title">24H Trend • PM2.5</div>
+        <canvas id="pmTrend"></canvas>
+      </div>
+    </section>
+
+    
+
+    <!-- Temperatures -->
+    <section class="card" id="temperatures" aria-labelledby="h-temp">
+      <h2 class="card-title" id="h-temp">» Temperatures</h2>
+      <div class="section-controls">
+        <label for="viewDateTemp" class="date-label">View:</label>
+        <input type="date" id="viewDateTemp" class="date-input" />
+        <button class="btn" id="btnTodayTemp">Today</button>
+        <span id="viewingTagTemp" class="viewing-tag">live</span>
+      </div>
+
+      <div class="temp-row">
+        <div class="temp-col">
+          <div class="dial">
+            <div class="dial-num" id="tKlong">00.0°C</div>
+          </div>
+          <div class="legend">◆ Klong San</div>
+        </div>
+
+        <div class="temp-col">
+          <div class="dial">
+            <div class="dial-num" id="tThon">00.0°C</div>
+          </div>
+          <div class="legend">◆ Thon Buri</div>
+        </div>
+
+        <div class="temp-col">
+          <div class="dial">
+            <div class="dial-num" id="tBang">00.0°C</div>
+          </div>
+          <div class="legend">◆ Bang Rak</div>
+        </div>
+      </div>
+      <!-- 24H Trend for Temperature (3 districts) -->
+      <div class="trend">
+        <div class="trend-title">24H Trend • Temperature</div>
+        <canvas id="tempTrend"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
