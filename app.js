@@ -39,11 +39,10 @@ const THINGSPEAK = {
   thon_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 2 },
   bang_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 3 },
 
-  // Temperature per district (°C) - ใช้ค่าเริ่มต้นสำหรับ temperature เนื่องจากไม่มีข้อมูลใน channel
-  // หาก channel ของคุณมี field สำหรับ temperature ให้เปลี่ยน field ตามที่ต้องการ
-  klong_temp: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 1 }, // ปิดการใช้งาน - ไม่มี temperature data
-  thon_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 2 }, // ปิดการใช้งาน - ไม่มี temperature data  
-  bang_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 3 }, // ปิดการใช้งาน - ไม่มี temperature data
+  // Temperature per district (°C) - ใช้ channelId 3027679 เช่นกัน
+  klong_temp: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 4 },
+  thon_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 4 },
+  bang_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 4 },
 
   // refresh period (ms)
   intervalMs: 15000 // 15 วินาที
