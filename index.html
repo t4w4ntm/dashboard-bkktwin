@@ -16,26 +16,6 @@
 </head>
 <body>
   <a href="#main" class="skip-link">ข้ามไปยังเนื้อหาหลัก</a>
-  <!-- Interactive Animated Pixel Background -->
-  <div class="pixel-bg" id="pixelBg">
-    <div class="bg-image" aria-hidden="true"></div>
-    <div class="pixel-particle pixel-1"></div>
-    <div class="pixel-particle pixel-2"></div>
-    <div class="pixel-particle pixel-3"></div>
-    <div class="pixel-particle pixel-4"></div>
-    <div class="pixel-particle pixel-5"></div>
-    <div class="pixel-particle pixel-6"></div>
-    <div class="pixel-particle pixel-7"></div>
-    <div class="pixel-particle pixel-8"></div>
-    
-    <!-- Interactive Background Layers -->
-    <div class="bg-layer bg-layer-1" id="bgLayer1"></div>
-    <div class="bg-layer bg-layer-2" id="bgLayer2"></div>
-    <div class="bg-layer bg-layer-3" id="bgLayer3"></div>
-    
-    <!-- Mouse Trail -->
-    <canvas id="mouseTrail" class="mouse-trail"></canvas>
-  </div>
 
   <header class="topbar" role="banner">
     <div class="brand">BangkokTwin</div>
@@ -105,6 +85,54 @@
       <div class="trend">
         <div class="trend-title">24H Trend • PM2.5</div>
         <canvas id="pmTrend"></canvas>
+        <div class="time-range-controls">
+          <div class="time-control">
+            <label for="pmStartTime" class="time-label">Start Time:</label>
+            <select id="pmStartTime" class="time-select">
+              <!-- Options will be populated by JavaScript -->
+            </select>
+          </div>
+          <div class="time-control">
+            <label for="pmEndTime" class="time-label">End Time:</label>
+            <select id="pmEndTime" class="time-select">
+              <!-- Options will be populated by JavaScript -->
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Insights & Advisory Card -->
+    <section class="card card-insights" id="insights" aria-labelledby="h-insights">
+      <h2 class="card-title" id="h-insights">» Overall Status & Advisory</h2>
+      <div class="insights-grid">
+        <div class="chips">
+          <div class="chip">
+            <div class="chip-title">Overall AQI</div>
+            <div class="chip-value" id="overallAQI">000</div>
+          </div>
+          <div class="chip">
+            <div class="chip-title">Best District</div>
+            <div class="chip-value" id="bestDistrict">--</div>
+          </div>
+          <div class="chip">
+            <div class="chip-title">Worst District</div>
+            <div class="chip-value" id="worstDistrict">--</div>
+          </div>
+        </div>
+        <div class="advice">
+          <div class="advice-title">Health Advisory</div>
+          <div class="advice-body" id="adviceText">Loading advice...</div>
+          <div class="advice-meta">
+            <span class="badge good" id="aqiLevelBadge">Good</span>
+            <span class="muted">Last updated: <span id="insightsUpdated">--:--</span></span>
+          </div>
+        </div>
+      </div>
+      <!-- Combined 24H Trend -->
+      <div class="trend">
+        <div class="trend-title">24H Combined Trend • PM2.5 & Temperature</div>
+        <canvas id="combinedTrend"></canvas>
       </div>
     </section>
 
@@ -146,6 +174,20 @@
       <div class="trend">
         <div class="trend-title">24H Trend • Temperature</div>
         <canvas id="tempTrend"></canvas>
+        <div class="time-range-controls">
+          <div class="time-control">
+            <label for="tempStartTime" class="time-label">Start Time:</label>
+            <select id="tempStartTime" class="time-select">
+              <!-- Options will be populated by JavaScript -->
+            </select>
+          </div>
+          <div class="time-control">
+            <label for="tempEndTime" class="time-label">End Time:</label>
+            <select id="tempEndTime" class="time-select">
+              <!-- Options will be populated by JavaScript -->
+            </select>
+          </div>
+        </div>
       </div>
     </section>
   </main>

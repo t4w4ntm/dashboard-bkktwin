@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>X-Axis Fix Test</title>
+</head>
+<body>
+  <h1>X-Axis Time Display Fix 🎯</h1>
+  
+  <h2>Problem Fixed:</h2>
+  <div style="background: #ffe6e6; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <h3>❌ Before:</h3>
+    <p>When selecting Start Time: 18:00 and End Time: 19:00</p>
+    <ul>
+      <li>End Time (19:00) appeared in the middle of the graph</li>
+      <li>X-axis range was from 18:00 to 19:59:59.999</li>
+      <li>Made the graph confusing to read</li>
+    </ul>
+  </div>
+
+  <div style="background: #e6ffe6; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <h3>✅ After:</h3>
+    <p>When selecting Start Time: 18:00 and End Time: 19:00</p>
+    <ul>
+      <li>Start Time (18:00) appears at left edge</li>
+      <li>End Time (19:00) appears at right edge</li>
+      <li>X-axis range is exactly from 18:00 to 19:00</li>
+      <li>Graph is easy to read and accurate</li>
+    </ul>
+  </div>
+  
+  <h2>Technical Solution:</h2>
+  <ol>
+    <li>Created separate <code>getDisplayTimeRange()</code> function</li>
+    <li>Data fetching uses full hour range (18:00:00 to 19:59:59.999)</li>
+    <li>Chart display uses exact boundaries (18:00:00 to 19:00:00)</li>
+    <li>Both PM2.5 and Temperature graphs fixed</li>
+  </ol>
+
+  <h2>Code Changes:</h2>
+  <pre style="background: #f5f5f5; padding: 10px; border-radius: 5px;">
+// New function for chart display
+function getDisplayTimeRange(startSelect, endSelect, dateStr) {
+  // Sets end time to exact hour (19:00:00)
+  endTime.setHours(endHour, 0, 0, 0);
+}
+
+// Original function for data fetching  
+function getTimeRangeFromSelects(startSelect, endSelect, dateStr) {
+  // Sets end time to end of hour (19:59:59.999)
+  endTime.setHours(endHour, 59, 59, 999);
+}
+  </pre>
+
+  <h2>Test Cases:</h2>
+  <table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;">
+    <tr style="background: #e6f3ff;">
+      <th>Start Time</th>
+      <th>End Time</th>
+      <th>Expected X-axis Left</th>
+      <th>Expected X-axis Right</th>
+    </tr>
+    <tr>
+      <td>18:00</td>
+      <td>19:00</td>
+      <td>18:00</td>
+      <td>19:00 (at right edge)</td>
+    </tr>
+    <tr>
+      <td>08:00</td>
+      <td>12:00</td>
+      <td>08:00</td>
+      <td>12:00 (at right edge)</td>
+    </tr>
+    <tr>
+      <td>14:00</td>
+      <td>16:00</td>
+      <td>14:00</td>
+      <td>16:00 (at right edge)</td>
+    </tr>
+  </table>
+
+  <p><strong>🚀 <a href="index.html" style="font-size: 18px; color: #007acc;">Test the Fixed Dashboard</a></strong></p>
+  
+  <p><em>Now the End Time should appear exactly at the right edge of the graph! ✨</em></p>
+</body>
+</html>
