@@ -283,48 +283,44 @@ function ensureCombinedChart(){
         { label: 'Bang Rak Temp', data: [], parsing: false, borderColor: '#f4c742', backgroundColor: '#f4c742', fill: false, yAxisID: 'y1', borderDash: [5, 5] }
       ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { 
-          labels: { 
-            color: colorVar('--fg','#e8f1ff'),
-            filter: function(item, chart) {
-              // Show only 3 items in legend to save space
-              return item.datasetIndex < 3;
-            }
-          } 
-        },
-        title: { display: false }
-      },
-      scales: {
-        x: {
-          type: 'time',
-          time: { unit: 'hour', tooltipFormat: 'MMM d HH:mm' },
-          ticks: { color: colorVar('--muted','#95b0d1') },
-          grid: { color: 'rgba(79, 168, 232, 0.12)' }
-        },
-        y: {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: { display: true, text: 'PM2.5 (μg/m³)', color: colorVar('--muted','#95b0d1') },
-          ticks: { color: colorVar('--muted','#95b0d1') },
-          grid: { color: 'rgba(79, 168, 232, 0.12)' }
-        },
-        y1: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          title: { display: true, text: 'Temperature (°C)', color: colorVar('--muted','#95b0d1') },
-          ticks: { color: colorVar('--muted','#95b0d1') },
-          grid: { drawOnChartArea: false }
-        }
-      },
-      elements: { line: { tension: 0.25, borderWidth: 2 }, point: { radius: 0 } }
+options: {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index', intersect: false },
+  layout: { padding: { left: 0, right: 0, top: 0, bottom: 0 } }, // ลด padding รอบ ๆ
+  plugins: {
+    legend: {
+      labels: {
+        color: colorVar('--fg','#e8f1ff'),
+        filter: (item)=> item.datasetIndex < 3
+      }
+    },
+    title: { display: false }
+  },
+  scales: {
+    x: {
+      type: 'time',
+      time: { unit: 'hour', displayFormats: { hour: 'ha' } },
+      ticks: { color: colorVar('--muted','#95b0d1'), maxTicksLimit: 6 },
+      grid: { color: 'rgba(255,255,255,.08)' }
+    },
+    y: {
+      title: { display: false },             // << ปิดชื่อแกนซ้าย
+      ticks: { color: colorVar('--muted','#95b0d1'), maxTicksLimit: 5 },
+      grid: { color: 'rgba(255,255,255,.06)' }
+    },
+    y1: {
+      type: 'linear',
+      display: true,
+      position: 'right',
+      title: { display: false },             // << ปิดชื่อแกนขวา
+      ticks: { color: colorVar('--muted','#95b0d1'), maxTicksLimit: 5 },
+      grid: { drawOnChartArea: false }
     }
+  },
+  elements: { line: { tension: 0.25, borderWidth: 2 }, point: { radius: 0 } }
+}
+
   });
 }
 
@@ -1134,9 +1130,9 @@ function updateInsightsCard(){
   if(!overallEl || !badgeEl) return; // insights not on page
 
   var aqi = {
-    Klong: aqiFromPM25(dataState.klong.pm25 || 0),
-    Thon:  aqiFromPM25(dataState.thon.pm25 || 0),
-    Bang:  aqiFromPM25(dataState.bang.pm25 || 0)
+    'Klong San': aqiFromPM25(dataState.klong.pm25 || 0),
+    'Thon Buri':  aqiFromPM25(dataState.thon.pm25 || 0),
+    'Bang Rak':  aqiFromPM25(dataState.bang.pm25 || 0)
   };
   var entries = Object.keys(aqi).map(function(key) {
     return [key, aqi[key]];
@@ -1151,8 +1147,8 @@ function updateInsightsCard(){
   });
 
   overallEl.textContent = String(overall).padStart(3,'0');
-  if(bestEl) bestEl.textContent = best[0] + ' • ' + String(best[1]).padStart(3,'0');
-  if(worstEl) worstEl.textContent = worst[0] + ' • ' + String(worst[1]).padStart(3,'0');
+  if(bestEl) bestEl.textContent = best[0]; // แสดงเฉพาะชื่อเขต
+  if(worstEl) worstEl.textContent = worst[0]; // แสดงเฉพาะชื่อเขต
   var adv = computeAQIAdvice(overall);
   badgeEl.className = 'badge ' + adv.className;
   badgeEl.textContent = adv.label;
@@ -1259,4 +1255,488 @@ document.addEventListener('DOMContentLoaded', function() {
       }, 100);
     });
   }
+});
+
+// ===== WHO GOAL TRACKER MODULE =====
+
+var whoTrackerState = {
+  currentMetric: 'pm25', // pm25, aqi, temp
+  currentStandard: 'who', // who, th, custom
+  customThreshold: 25,
+  dailyGoal: 20,
+  hourlyData: new Array(24).fill(null),
+  isInitialized: false
+};
+
+// Threshold definitions
+var THRESHOLDS = {
+  pm25: {
+    who: 15,    // WHO 2021 guideline
+    th: 37.5,   // Thailand standard (24h average)
+    custom: 25  // Default custom value
+  },
+  aqi: {
+    who: 50,    // Equivalent to PM2.5 15
+    th: 100,    // Equivalent to PM2.5 37.5
+    custom: 75  // Default custom value
+  },
+  temp: {
+    who: 35,    // Heat warning threshold
+    th: 40,     // Thailand heat warning
+    custom: 32  // Default custom value
+  }
+};
+
+function initWhoTracker() {
+  console.log('Initializing WHO Goal Tracker...');
+  
+  // Hook DOM elements and event listeners
+  var metricButtons = document.querySelectorAll('.who-metric');
+  var standardButtons = document.querySelectorAll('.who-standard');
+  var customThresholdInput = document.getElementById('customThreshold');
+  var goalSlider = document.getElementById('goalHours');
+  var goalDisplay = document.getElementById('goalValue');
+  
+  // Metric selection
+  metricButtons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var metric = btn.getAttribute('data-metric');
+      if (metric !== whoTrackerState.currentMetric) {
+        metricButtons.forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        whoTrackerState.currentMetric = metric;
+        updateCustomThreshold();
+        loadTodayDataAndUpdate();
+      }
+    });
+  });
+  
+  // Standard selection
+  standardButtons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var standard = btn.getAttribute('data-standard');
+      if (standard !== whoTrackerState.currentStandard) {
+        standardButtons.forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        whoTrackerState.currentStandard = standard;
+        
+        // Show/hide custom input
+        var customGroup = document.querySelector('.custom-threshold');
+        if (customGroup) {
+          customGroup.style.display = standard === 'custom' ? 'flex' : 'none';
+        }
+        
+        updateSummary();
+        updateComplianceBar();
+      }
+    });
+  });
+  
+  // Custom threshold input
+  if (customThresholdInput) {
+    customThresholdInput.addEventListener('input', function() {
+      var value = parseFloat(customThresholdInput.value);
+      if (!isNaN(value) && value > 0) {
+        whoTrackerState.customThreshold = value;
+        updateSummary();
+        updateComplianceBar();
+      }
+    });
+  }
+  
+  // Goal slider
+  if (goalSlider && goalDisplay) {
+    goalSlider.addEventListener('input', function() {
+      var value = parseInt(goalSlider.value);
+      whoTrackerState.dailyGoal = value;
+      goalDisplay.textContent = value + 'h';
+      updateSummary();
+    });
+  }
+  
+  // Initialize hours grid
+  createHoursGrid();
+  
+  // Update custom threshold input
+  updateCustomThreshold();
+  
+  // Load today's data
+  loadTodayDataAndUpdate();
+  
+  // Update data periodically
+  setInterval(loadTodayDataAndUpdate, 5 * 60 * 1000); // Every 5 minutes
+  
+  whoTrackerState.isInitialized = true;
+}
+
+function createHoursGrid() {
+  var grid = document.getElementById('hoursGrid');
+  if (!grid) return;
+  
+  grid.innerHTML = '';
+  
+  for (var hour = 0; hour < 24; hour++) {
+    var hourBar = document.createElement('div');
+    hourBar.className = 'hour-bar no-data';
+    hourBar.setAttribute('data-hour', hour);
+    
+    var hourFill = document.createElement('div');
+    hourFill.className = 'hour-fill';
+    hourFill.style.height = '20%'; // Default height
+    
+    var hourLabel = document.createElement('div');
+    hourLabel.className = 'hour-label';
+    hourLabel.textContent = String(hour).padStart(2, '0');
+    
+    hourBar.appendChild(hourFill);
+    hourBar.appendChild(hourLabel);
+    
+    // Add click handler to focus charts above
+    hourBar.addEventListener('click', function() {
+      var clickedHour = parseInt(this.getAttribute('data-hour'));
+      focusChartsOnHour(clickedHour);
+    });
+    
+    grid.appendChild(hourBar);
+  }
+}
+
+function updateCustomThreshold() {
+  var input = document.getElementById('customThreshold');
+  if (input) {
+    var metric = whoTrackerState.currentMetric;
+    input.placeholder = THRESHOLDS[metric].custom.toString();
+    if (whoTrackerState.currentStandard === 'custom') {
+      whoTrackerState.customThreshold = THRESHOLDS[metric].custom;
+      input.value = whoTrackerState.customThreshold;
+    }
+  }
+}
+
+function loadTodayDataAndUpdate() {
+  // Get today's hourly data for the current metric
+  var today = new Date();
+  var startOfDay = new Date(today);
+  startOfDay.setHours(0, 0, 0, 0);
+  var endOfDay = new Date(today);
+  endOfDay.setHours(23, 59, 59, 999);
+  
+  // Use existing ThingSpeak configuration
+  var configMap = {
+    'pm25': [THINGSPEAK.klong_pm25, THINGSPEAK.thon_pm25, THINGSPEAK.bang_pm25],
+    'temp': [THINGSPEAK.klong_temp, THINGSPEAK.thon_temp, THINGSPEAK.bang_temp]
+  };
+  
+  var configs = configMap[whoTrackerState.currentMetric] || configMap['pm25'];
+  
+  Promise.all([
+    fetchSeries(configs[0], startOfDay, endOfDay),
+    fetchSeries(configs[1], startOfDay, endOfDay),
+    fetchSeries(configs[2], startOfDay, endOfDay)
+  ]).then(function(results) {
+    // Combine all districts and bin by hour
+    var allData = [];
+    results.forEach(function(districtData) {
+      allData = allData.concat(districtData);
+    });
+    
+    // Bin into 24 hours and average
+    var hourlyData = new Array(24).fill(null);
+    var hourlyCounts = new Array(24).fill(0);
+    
+    allData.forEach(function(point) {
+      var hour = point.x.getHours();
+      if (point.y !== null && !isNaN(point.y)) {
+        if (hourlyData[hour] === null) hourlyData[hour] = 0;
+        hourlyData[hour] += point.y;
+        hourlyCounts[hour]++;
+      }
+    });
+    
+    // Calculate averages and convert to AQI if needed
+    for (var h = 0; h < 24; h++) {
+      if (hourlyCounts[h] > 0) {
+        hourlyData[h] /= hourlyCounts[h];
+        if (whoTrackerState.currentMetric === 'aqi') {
+          hourlyData[h] = computeAQIFromPM25(hourlyData[h]);
+        }
+      }
+    }
+    
+    whoTrackerState.hourlyData = hourlyData;
+    updateComplianceBar();
+    updateSummary();
+    
+  }).catch(function(error) {
+    console.error('WHO Tracker data loading error:', error);
+    // Generate mock data as fallback
+    generateMockHourlyData();
+    updateComplianceBar();
+    updateSummary();
+  });
+}
+
+function generateMockHourlyData() {
+  var metric = whoTrackerState.currentMetric;
+  var hourlyData = new Array(24);
+  
+  for (var h = 0; h < 24; h++) {
+    var baseValue, value;
+    
+    switch (metric) {
+      case 'pm25':
+        baseValue = 20 + 15 * Math.sin((h - 6) * Math.PI / 12);
+        value = Math.max(5, baseValue + (Math.random() - 0.5) * 20);
+        break;
+      case 'aqi':
+        baseValue = 60 + 30 * Math.sin((h - 6) * Math.PI / 12);
+        value = Math.max(20, baseValue + (Math.random() - 0.5) * 40);
+        break;
+      case 'temp':
+        baseValue = 30 + 6 * Math.sin((h - 14) * Math.PI / 12);
+        value = baseValue + (Math.random() - 0.5) * 4;
+        break;
+      default:
+        value = Math.random() * 50 + 25;
+    }
+    
+    hourlyData[h] = parseFloat(value.toFixed(1));
+    
+    // Randomly make some hours null (no data)
+    if (Math.random() < 0.1) {
+      hourlyData[h] = null;
+    }
+  }
+  
+  whoTrackerState.hourlyData = hourlyData;
+}
+
+function getCurrentThreshold() {
+  var metric = whoTrackerState.currentMetric;
+  var standard = whoTrackerState.currentStandard;
+  
+  if (standard === 'custom') {
+    return whoTrackerState.customThreshold;
+  }
+  
+  return THRESHOLDS[metric][standard];
+}
+
+function getComplianceStatus(value, threshold) {
+  if (value === null) return 'no-data';
+  
+  var metric = whoTrackerState.currentMetric;
+  
+  // For PM2.5 and AQI, lower is better
+  if (metric === 'pm25' || metric === 'aqi') {
+    if (value <= threshold) return 'good';
+    if (value <= threshold * 1.5) return 'moderate';
+    return 'unhealthy';
+  }
+  
+  // For temperature, higher is worse
+  if (metric === 'temp') {
+    if (value < threshold) return 'good';
+    if (value < threshold + 5) return 'moderate';
+    return 'unhealthy';
+  }
+  
+  return 'no-data';
+}
+
+function updateComplianceBar() {
+  var grid = document.getElementById('hoursGrid');
+  if (!grid) return;
+  
+  var threshold = getCurrentThreshold();
+  var bars = grid.querySelectorAll('.hour-bar');
+  
+  bars.forEach(function(bar, hour) {
+    var value = whoTrackerState.hourlyData[hour];
+    var status = getComplianceStatus(value, threshold);
+    
+    // Remove all status classes
+    bar.classList.remove('good', 'moderate', 'unhealthy', 'no-data');
+    bar.classList.add(status);
+    
+    // Set height based on value (normalized)
+    var fill = bar.querySelector('.hour-fill');
+    if (fill) {
+      var height = 20; // Default height for no-data
+      if (value !== null) {
+        // Normalize height based on metric
+        var maxValue = threshold * 3; // Show relative to threshold
+        height = Math.min(90, Math.max(10, (value / maxValue) * 80 + 10));
+      }
+      fill.style.height = height + '%';
+    }
+    
+    // Add tooltip
+    var tooltip = value !== null ? 
+      value.toFixed(1) + getUnitSuffix() : 'No data';
+    bar.title = String(hour).padStart(2, '0') + ':00 - ' + tooltip;
+  });
+}
+
+function getUnitSuffix() {
+  switch (whoTrackerState.currentMetric) {
+    case 'pm25': return ' μg/m³';
+    case 'aqi': return ' AQI';
+    case 'temp': return ' °C';
+    default: return '';
+  }
+}
+
+function updateSummary() {
+  var threshold = getCurrentThreshold();
+  var data = whoTrackerState.hourlyData;
+  
+  var withinCount = 0;
+  var exceedCount = 0;
+  var currentStreak = 0;
+  var tempStreak = 0;
+  
+  // Count compliance and calculate streak
+  for (var h = 0; h < 24; h++) {
+    var value = data[h];
+    if (value !== null) {
+      var isWithin = getComplianceStatus(value, threshold) === 'good';
+      if (isWithin) {
+        withinCount++;
+        tempStreak++;
+        currentStreak = Math.max(currentStreak, tempStreak);
+      } else {
+        exceedCount++;
+        tempStreak = 0;
+      }
+    }
+  }
+  
+  // Update DOM elements
+  var elements = {
+    withinHours: document.getElementById('withinHours'),
+    exceedHours: document.getElementById('exceedHours'),
+    currentStreak: document.getElementById('currentStreak'),
+    personalGoal: document.getElementById('personalGoal')
+  };
+  
+  if (elements.withinHours) {
+    elements.withinHours.textContent = withinCount + 'h';
+    elements.withinHours.className = 'summary-value';
+    if (withinCount >= 20) {
+      elements.withinHours.style.color = colorVar('--green', '#1dd196');
+    } else if (withinCount >= 12) {
+      elements.withinHours.style.color = colorVar('--yellow', '#f4c742');
+    } else {
+      elements.withinHours.style.color = colorVar('--red', '#ff4757');
+    }
+  }
+  
+  if (elements.exceedHours) {
+    elements.exceedHours.textContent = exceedCount + 'h';
+    elements.exceedHours.className = 'summary-value';
+    if (exceedCount <= 2) {
+      elements.exceedHours.style.color = colorVar('--green', '#1dd196');
+    } else if (exceedCount <= 6) {
+      elements.exceedHours.style.color = colorVar('--yellow', '#f4c742');
+    } else {
+      elements.exceedHours.style.color = colorVar('--red', '#ff4757');
+    }
+  }
+  
+  if (elements.currentStreak) {
+    elements.currentStreak.textContent = currentStreak + 'h';
+    elements.currentStreak.className = 'summary-value';
+    if (currentStreak >= 8) {
+      elements.currentStreak.style.color = colorVar('--green', '#1dd196');
+    } else if (currentStreak >= 4) {
+      elements.currentStreak.style.color = colorVar('--yellow', '#f4c742');
+    } else {
+      elements.currentStreak.style.color = colorVar('--red', '#ff4757');
+    }
+  }
+  
+  if (elements.personalGoal) {
+    var goalAchieved = withinCount >= whoTrackerState.dailyGoal;
+    var goalText = whoTrackerState.dailyGoal + 'h ' + (goalAchieved ? '✓' : '•');
+    elements.personalGoal.textContent = goalText;
+    elements.personalGoal.className = 'summary-value';
+    elements.personalGoal.style.color = goalAchieved ? 
+      colorVar('--green', '#1dd196') : colorVar('--muted', '#8fb0cf');
+  }
+}
+
+function focusChartsOnHour(hour) {
+  console.log('Focusing charts on hour:', hour);
+  
+  // Set time range for PM chart if exists
+  var pmStartSelect = document.getElementById('pmStartTime');
+  var pmEndSelect = document.getElementById('pmEndTime');
+  var pmDateInput = document.getElementById('viewDatePM');
+  
+  if (pmStartSelect && pmEndSelect) {
+    pmStartSelect.value = hour.toString();
+    pmEndSelect.value = ((hour + 1) % 24).toString();
+    
+    // Set date to today if not already set
+    if (pmDateInput && !pmDateInput.value) {
+      var today = new Date();
+      var dateStr = today.getFullYear() + '-' + 
+                   String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(today.getDate()).padStart(2, '0');
+      pmDateInput.value = dateStr;
+    }
+    
+    // Trigger update if function exists
+    if (typeof updatePMTrendWithTimeRange === 'function') {
+      updatePMTrendWithTimeRange();
+    }
+  }
+  
+  // Set time range for Temperature chart if exists
+  var tempStartSelect = document.getElementById('tempStartTime');
+  var tempEndSelect = document.getElementById('tempEndTime');
+  var tempDateInput = document.getElementById('viewDateTemp');
+  
+  if (tempStartSelect && tempEndSelect) {
+    tempStartSelect.value = hour.toString();
+    tempEndSelect.value = ((hour + 1) % 24).toString();
+    
+    // Set date to today if not already set
+    if (tempDateInput && !tempDateInput.value) {
+      var today = new Date();
+      var dateStr = today.getFullYear() + '-' + 
+                   String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(today.getDate()).padStart(2, '0');
+      tempDateInput.value = dateStr;
+    }
+    
+    // Trigger update if function exists
+    if (typeof updateTempTrendWithTimeRange === 'function') {
+      updateTempTrendWithTimeRange();
+    }
+  }
+  
+  // Visual feedback
+  var allBars = document.querySelectorAll('.hour-bar');
+  allBars.forEach(function(bar, index) {
+    if (index === hour) {
+      bar.style.transform = 'scale(1.1)';
+      bar.style.zIndex = '20';
+      setTimeout(function() {
+        bar.style.transform = '';
+        bar.style.zIndex = '';
+      }, 1000);
+    }
+  });
+}
+
+// Initialize WHO Tracker when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  // Add delay to ensure other components are initialized first
+  setTimeout(function() {
+    if (document.getElementById('bottom-card')) {
+      initWhoTracker();
+    }
+  }, 1000);
 });
