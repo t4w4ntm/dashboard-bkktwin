@@ -148,7 +148,7 @@ body {
 }
 
 .topbar .brand {
-  font-family: 'Zen Dots', 'Audiowide', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Play-Bold', 'Zen Dots', 'Audiowide', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   font-size: 32px;
   font-weight: 900;
   letter-spacing: 1px;
@@ -160,7 +160,7 @@ body {
 }
 
 .topbar .center {
-  font-family: 'Zen Dots', 'Audiowide', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Play-Bold', 'Zen Dots', 'Audiowide', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   justify-self: center;
   font-size: 32px;
   font-weight: 800;
@@ -177,6 +177,26 @@ body {
   font-weight: 600;
   color: #9ec4ff;
   font-size: 16px;
+  margin-right: 90px;
+}
+
+.btn-back {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(79, 168, 232, 0.12), rgba(29, 209, 150, 0.08));
+  border: 1px solid rgba(79, 168, 232, 0.3);
+  color: #b6d3ff;
+  font-family: 'Play-Bold', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+    0 2px 8px rgba(10, 18, 24, 0.4);
+  cursor: default;
+  pointer-events: none;
 }
 
 /* ===== Date Controls ===== */
@@ -361,7 +381,7 @@ body {
 }
 
 .card-title {
-  font-family: 'Audiowide', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Play-Bold', 'Audiowide', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   font-weight: 900;
   color: #cde9ff;
   margin-bottom: 12px;
@@ -705,11 +725,13 @@ body {
 
 /* stick trend to bottom when card stretches */
 .trend-title {
+  font-family: 'Play-Bold', 'Audiowide', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   color: #9ec4ff;
   margin-bottom: 6px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+  font-weight: bold;
 }
 
 .trend canvas {
@@ -829,10 +851,12 @@ body {
 }
 
 .card-insights .chip-title {
+  font-family: 'Play-Bold', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   opacity: .85;
   letter-spacing: .4px;
   margin-bottom: 4px;
+  font-weight: bold;
 }
 
 .card-insights .chip-value {
@@ -858,6 +882,7 @@ body {
 }
 
 .card-insights .advice-title {
+  font-family: 'Play-Bold', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
   font-weight: 800;
   margin-bottom: 6px;
   font-size: 14px;
@@ -1121,6 +1146,7 @@ body {
 }
 
 .control-label {
+  font-family: 'Play-Bold', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
   color: var(--muted);
   font-weight: 600;
@@ -1184,6 +1210,7 @@ body {
 }
 
 .compliance-title {
+  font-family: 'Play-Bold', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
   color: var(--muted);
   font-weight: 600;
@@ -1282,6 +1309,7 @@ body {
 }
 
 .summary-label {
+  font-family: 'Play-Bold', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
   font-size: 8px;
   color: var(--muted);
   font-weight: 600;
@@ -1309,6 +1337,7 @@ body {
 }
 
 .goal-label {
+  font-family: 'Play-Bold', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
   color: var(--muted);
   font-weight: 600;
