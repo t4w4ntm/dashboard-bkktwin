@@ -25,9 +25,9 @@ function setGauge(fillId, value){
 // ======== DATA STATE ========
 // default demo values (will be replaced by ThingSpeak if configured)
 var dataState = {
-  klong: { pm25: 12, aqi: 40, temp: 29.4 },
-  thon:  { pm25: 18, aqi: 55, temp: 30.2 },
-  bang:  { pm25: 25, aqi: 70, temp: 31.1 }
+  klong: { pm25: null, aqi: 0, temp: null },
+  thon:  { pm25: null, aqi: 0, temp: null },
+  bang:  { pm25: null, aqi: 0, temp: null }
 };
 
 // ======== THINGSPEAK CONFIG ========
@@ -35,17 +35,27 @@ var dataState = {
 // คุณสามารถใช้ Channel เดียวหลายฟิลด์หรือคนละ Channel ก็ได้
 var THINGSPEAK = {
   // PM2.5 per district - ตาม ThingSpeak Channel ที่มี Field 1, 2, 3 เป็น PM2.5
-  klong_pm25: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 1 },
-  thon_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 2 },
-  bang_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 3 },
+  klong_pm25: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 2 },
+  thon_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
+  bang_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
 
   // Temperature per district (°C) - ใช้ channelId 3027679 เช่นกัน
   klong_temp: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 4 },
-  thon_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 4 },
-  bang_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 4 },
+  thon_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
+  bang_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
 
   // refresh period (ms)
   intervalMs: 15000 // 15 วินาที
+};
+
+// ======== OPENWEATHERMAP CONFIG ========
+var OPENWEATHERMAP = {
+  apiKey: "777b3dd9f7d7c557345e420d99f6c144",
+  locations: {
+    klong: "Khlong San",
+    thon: "Thon Buri",
+    bang: "Bang Rak"
+  }
 };
 
 // ======== Trend (24H) config ========
@@ -802,37 +812,37 @@ function statusWord(aqi){
 
 // ===== Render to UI =====
 function render(){
-  // PM2.5 text
-  document.getElementById('pmKlong').textContent = (Number.isFinite(dataState.klong.pm25)?dataState.klong.pm25:0).toFixed(1);
-  document.getElementById('pmThon').textContent  = (Number.isFinite(dataState.thon.pm25)?dataState.thon.pm25:0).toFixed(1);
-  document.getElementById('pmBang').textContent  = (Number.isFinite(dataState.bang.pm25)?dataState.bang.pm25:0).toFixed(1);
+  // PM2.5 text - แสดง N/A ถ้าไม่มีข้อมูล
+  document.getElementById('pmKlong').textContent = (dataState.klong.pm25 !== null && Number.isFinite(dataState.klong.pm25)) ? dataState.klong.pm25.toFixed(1) : 'N/A';
+  document.getElementById('pmThon').textContent  = (dataState.thon.pm25 !== null && Number.isFinite(dataState.thon.pm25)) ? dataState.thon.pm25.toFixed(1) : 'N/A';
+  document.getElementById('pmBang').textContent  = (dataState.bang.pm25 !== null && Number.isFinite(dataState.bang.pm25)) ? dataState.bang.pm25.toFixed(1) : 'N/A';
 
-  // AQI
-  dataState.klong.aqi = aqiFromPM25(dataState.klong.pm25 || 0);
-  dataState.thon.aqi  = aqiFromPM25(dataState.thon.pm25 || 0);
-  dataState.bang.aqi  = aqiFromPM25(dataState.bang.pm25 || 0);
+  // AQI - คำนวณเฉพาะเมื่อมีข้อมูล PM2.5
+  dataState.klong.aqi = (dataState.klong.pm25 !== null && Number.isFinite(dataState.klong.pm25)) ? aqiFromPM25(dataState.klong.pm25) : 0;
+  dataState.thon.aqi  = (dataState.thon.pm25 !== null && Number.isFinite(dataState.thon.pm25)) ? aqiFromPM25(dataState.thon.pm25) : 0;
+  dataState.bang.aqi  = (dataState.bang.pm25 !== null && Number.isFinite(dataState.bang.pm25)) ? aqiFromPM25(dataState.bang.pm25) : 0;
 
   setGauge('fillKlong', Math.min(100, dataState.klong.aqi/2));
   setGauge('fillThon',  Math.min(100, dataState.thon.aqi/2));
   setGauge('fillBang',  Math.min(100, dataState.bang.aqi/2));
 
-  // AQI numbers on gauges
+  // AQI numbers on gauges - แสดง --- ถ้าไม่มีข้อมูล
   var aqiK = document.getElementById('aqiKlong');
   var aqiT = document.getElementById('aqiThon');
   var aqiB = document.getElementById('aqiBang');
-  if(aqiK) aqiK.textContent = String(dataState.klong.aqi).padStart(3,'0');
-  if(aqiT) aqiT.textContent = String(dataState.thon.aqi).padStart(3,'0');
-  if(aqiB) aqiB.textContent = String(dataState.bang.aqi).padStart(3,'0');
+  if(aqiK) aqiK.textContent = (dataState.klong.pm25 !== null) ? String(dataState.klong.aqi).padStart(3,'0') : '---';
+  if(aqiT) aqiT.textContent = (dataState.thon.pm25 !== null) ? String(dataState.thon.aqi).padStart(3,'0') : '---';
+  if(aqiB) aqiB.textContent = (dataState.bang.pm25 !== null) ? String(dataState.bang.aqi).padStart(3,'0') : '---';
 
-  // Temperatures
-  document.getElementById('tKlong').textContent = (Number.isFinite(dataState.klong.temp)?dataState.klong.temp:0).toFixed(1) + '°C';
-  document.getElementById('tThon').textContent  = (Number.isFinite(dataState.thon.temp)?dataState.thon.temp:0).toFixed(1) + '°C';
-  document.getElementById('tBang').textContent  = (Number.isFinite(dataState.bang.temp)?dataState.bang.temp:0).toFixed(1) + '°C';
+  // Temperatures - แสดง N/A ถ้าไม่มีข้อมูล
+  document.getElementById('tKlong').textContent = (dataState.klong.temp !== null && Number.isFinite(dataState.klong.temp)) ? dataState.klong.temp.toFixed(1) + '°C' : 'N/A';
+  document.getElementById('tThon').textContent  = (dataState.thon.temp !== null && Number.isFinite(dataState.thon.temp)) ? dataState.thon.temp.toFixed(1) + '°C' : 'N/A';
+  document.getElementById('tBang').textContent  = (dataState.bang.temp !== null && Number.isFinite(dataState.bang.temp)) ? dataState.bang.temp.toFixed(1) + '°C' : 'N/A';
 
-  // Status word
-  document.getElementById('statusKlong').textContent = statusWord(dataState.klong.aqi);
-  document.getElementById('statusThon').textContent  = statusWord(dataState.thon.aqi);
-  document.getElementById('statusBang').textContent  = statusWord(dataState.bang.aqi);
+  // Status word - แสดง No Data ถ้าไม่มีข้อมูล
+  document.getElementById('statusKlong').textContent = (dataState.klong.pm25 !== null) ? statusWord(dataState.klong.aqi) : 'No Data';
+  document.getElementById('statusThon').textContent  = (dataState.thon.pm25 !== null) ? statusWord(dataState.thon.aqi) : 'No Data';
+  document.getElementById('statusBang').textContent  = (dataState.bang.pm25 !== null) ? statusWord(dataState.bang.aqi) : 'No Data';
 }
 render();
 
@@ -847,6 +857,12 @@ function fetchLastField(config){
   var channelId = config.channelId;
   var readKey = config.readKey;
   var field = config.field;
+  
+  // ถ้า field เป็น 0 หมายความว่าไม่มีข้อมูล
+  if(field === 0 || field === '0' || !field){
+    return Promise.reject(new Error('No field configured (field is 0)'));
+  }
+  
   // Try feeds.json first (most consistent structure)
   var base = 'https://api.thingspeak.com/channels/' + channelId;
   var params = new URLSearchParams({ results: '1' });
@@ -921,110 +937,52 @@ function fetchLastField(config){
 
 
 function pollThingSpeak(){
-  var promises = [];
-  
-  // PM2.5 - เฉพาะที่มี channelId เท่านั้น
-  if(THINGSPEAK.klong_pm25.channelId && THINGSPEAK.klong_pm25.channelId !== "YOUR_CHANNEL_ID"){
-    promises.push(
-      fetchLastField(THINGSPEAK.klong_pm25).then(function(value) {
-        dataState.klong.pm25 = value;
-      }).catch(function() {
-        // ignore individual errors
-      })
-    );
-  }
-  
-  if(THINGSPEAK.thon_pm25.channelId && THINGSPEAK.thon_pm25.channelId !== "YOUR_CHANNEL_ID"){
-    promises.push(
-      fetchLastField(THINGSPEAK.thon_pm25).then(function(value) {
-        dataState.thon.pm25 = value;
-      }).catch(function() {
-        // ignore individual errors
-      })
-    );
-  }
-  
-  if(THINGSPEAK.bang_pm25.channelId && THINGSPEAK.bang_pm25.channelId !== "YOUR_CHANNEL_ID"){
-    promises.push(
-      fetchLastField(THINGSPEAK.bang_pm25).then(function(value) {
-        dataState.bang.pm25 = value;
-      }).catch(function() {
-        // ignore individual errors
-      })
-    );
-  }
-
-  // Temperature - เฉพาะที่มี channelId เท่านั้น
-  if(THINGSPEAK.klong_temp.channelId && THINGSPEAK.klong_temp.channelId !== "YOUR_CHANNEL_ID"){
-    promises.push(
-      fetchLastField(THINGSPEAK.klong_temp).then(function(value) {
-        dataState.klong.temp = value;
-      }).catch(function() {
-        // ignore individual errors
-      })
-    );
-  }
-  
-  if(THINGSPEAK.thon_temp.channelId && THINGSPEAK.thon_temp.channelId !== "YOUR_CHANNEL_ID"){
-    promises.push(
-      fetchLastField(THINGSPEAK.thon_temp).then(function(value) {
-        dataState.thon.temp = value;
-      }).catch(function() {
-        // ignore individual errors
-      })
-    );
-  }
-  
-  if(THINGSPEAK.bang_temp.channelId && THINGSPEAK.bang_temp.channelId !== "YOUR_CHANNEL_ID"){
-    promises.push(
-      fetchLastField(THINGSPEAK.bang_temp).then(function(value) {
-        dataState.bang.temp = value;
-      }).catch(function() {
-        // ignore individual errors
-      })
-    );
-  }
-  
-  Promise.all(promises).then(function() {
-    render();
-  }).catch(function(err) {
-    console.warn('ThingSpeak fetch error:', err);
-    render();
-  });
+  // เรียก pollThingSpeakPM และ pollThingSpeakTemp แยกกัน
+  pollThingSpeakPM();
+  pollThingSpeakTemp();
 }
 
 // Split pollers for separate control
 function pollThingSpeakPM(){
   var promises = [];
   
-  if(THINGSPEAK.klong_pm25.channelId && THINGSPEAK.klong_pm25.channelId !== "YOUR_CHANNEL_ID"){
+  if(THINGSPEAK.klong_pm25.channelId && THINGSPEAK.klong_pm25.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.klong_pm25.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.klong_pm25).then(function(value) {
         dataState.klong.pm25 = value;
-      }).catch(function() {
-        // ignore individual errors
+      }).catch(function(err) {
+        console.warn('Klong San PM2.5 fetch failed:', err.message);
+        dataState.klong.pm25 = null; // ตั้งค่าเป็น null เมื่อไม่มีข้อมูล
       })
     );
+  } else {
+    dataState.klong.pm25 = null; // ไม่มี field ที่กำหนด
   }
   
-  if(THINGSPEAK.thon_pm25.channelId && THINGSPEAK.thon_pm25.channelId !== "YOUR_CHANNEL_ID"){
+  if(THINGSPEAK.thon_pm25.channelId && THINGSPEAK.thon_pm25.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.thon_pm25.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.thon_pm25).then(function(value) {
         dataState.thon.pm25 = value;
-      }).catch(function() {
-        // ignore individual errors
+      }).catch(function(err) {
+        console.warn('Thon Buri PM2.5 fetch failed:', err.message);
+        dataState.thon.pm25 = null; // ตั้งค่าเป็น null เมื่อไม่มีข้อมูล
       })
     );
+  } else {
+    dataState.thon.pm25 = null; // ไม่มี field ที่กำหนด
   }
   
-  if(THINGSPEAK.bang_pm25.channelId && THINGSPEAK.bang_pm25.channelId !== "YOUR_CHANNEL_ID"){
+  if(THINGSPEAK.bang_pm25.channelId && THINGSPEAK.bang_pm25.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.bang_pm25.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.bang_pm25).then(function(value) {
         dataState.bang.pm25 = value;
-      }).catch(function() {
-        // ignore individual errors
+      }).catch(function(err) {
+        console.warn('Bang Rak PM2.5 fetch failed:', err.message);
+        dataState.bang.pm25 = null; // ตั้งค่าเป็น null เมื่อไม่มีข้อมูล
       })
     );
+  } else {
+    dataState.bang.pm25 = null; // ไม่มี field ที่กำหนด
   }
   
   Promise.all(promises).then(function() {
@@ -1035,43 +993,125 @@ function pollThingSpeakPM(){
   });
 }
 
+// ===== OpenWeatherMap Temperature Fetcher =====
+function fetchOpenWeatherTemp(locationName){
+  var url = 'https://api.openweathermap.org/data/2.5/weather?q=' + 
+            encodeURIComponent(locationName) + 
+            '&units=metric&appid=' + OPENWEATHERMAP.apiKey;
+  
+  return fetch(url, { cache: 'no-store' })
+    .then(function(response) {
+      if (!response.ok) {
+        throw new Error('OpenWeatherMap API error: ' + response.status);
+      }
+      return response.json();
+    })
+    .then(function(data) {
+      if (data && data.main && typeof data.main.temp === 'number') {
+        return data.main.temp;
+      }
+      throw new Error('Invalid temperature data from OpenWeatherMap');
+    });
+}
+
 function pollThingSpeakTemp(){
   var promises = [];
+  var owmPromises = [];
+  var thingSpeakTemps = { klong: null, thon: null, bang: null };
+  var owmTemps = { klong: null, thon: null, bang: null };
   
-  if(THINGSPEAK.klong_temp.channelId && THINGSPEAK.klong_temp.channelId !== "YOUR_CHANNEL_ID"){
+  // Fetch from ThingSpeak - ตรวจสอบว่า field > 0
+  if(THINGSPEAK.klong_temp.channelId && THINGSPEAK.klong_temp.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.klong_temp.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.klong_temp).then(function(value) {
-        dataState.klong.temp = value;
-      }).catch(function() {
-        // ignore individual errors
+        thingSpeakTemps.klong = value;
+      }).catch(function(err) {
+        console.warn('ThingSpeak klong temp fetch failed:', err.message);
       })
     );
   }
   
-  if(THINGSPEAK.thon_temp.channelId && THINGSPEAK.thon_temp.channelId !== "YOUR_CHANNEL_ID"){
+  if(THINGSPEAK.thon_temp.channelId && THINGSPEAK.thon_temp.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.thon_temp.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.thon_temp).then(function(value) {
-        dataState.thon.temp = value;
-      }).catch(function() {
-        // ignore individual errors
+        thingSpeakTemps.thon = value;
+      }).catch(function(err) {
+        console.warn('ThingSpeak thon temp fetch failed:', err.message);
       })
     );
   }
   
-  if(THINGSPEAK.bang_temp.channelId && THINGSPEAK.bang_temp.channelId !== "YOUR_CHANNEL_ID"){
+  if(THINGSPEAK.bang_temp.channelId && THINGSPEAK.bang_temp.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.bang_temp.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.bang_temp).then(function(value) {
-        dataState.bang.temp = value;
-      }).catch(function() {
-        // ignore individual errors
+        thingSpeakTemps.bang = value;
+      }).catch(function(err) {
+        console.warn('ThingSpeak bang temp fetch failed:', err.message);
       })
     );
   }
   
-  Promise.all(promises).then(function() {
+  // Fetch from OpenWeatherMap - เฉพาะเขตที่มี ThingSpeak field > 0
+  if(THINGSPEAK.klong_temp.field > 0) {
+    owmPromises.push(
+      fetchOpenWeatherTemp(OPENWEATHERMAP.locations.klong).then(function(temp) {
+        owmTemps.klong = temp;
+      }).catch(function(err) {
+        console.warn('OpenWeatherMap klong temp fetch failed:', err);
+      })
+    );
+  }
+  
+  if(THINGSPEAK.thon_temp.field > 0) {
+    owmPromises.push(
+      fetchOpenWeatherTemp(OPENWEATHERMAP.locations.thon).then(function(temp) {
+        owmTemps.thon = temp;
+      }).catch(function(err) {
+        console.warn('OpenWeatherMap thon temp fetch failed:', err);
+      })
+    );
+  }
+  
+  if(THINGSPEAK.bang_temp.field > 0) {
+    owmPromises.push(
+      fetchOpenWeatherTemp(OPENWEATHERMAP.locations.bang).then(function(temp) {
+        owmTemps.bang = temp;
+      }).catch(function(err) {
+        console.warn('OpenWeatherMap bang temp fetch failed:', err);
+      })
+    );
+  }
+  
+  // Wait for both ThingSpeak and OpenWeatherMap
+  Promise.all([Promise.all(promises), Promise.all(owmPromises)]).then(function() {
+    // Calculate average: (ThingSpeak + OpenWeatherMap) / 2
+    var districts = ['klong', 'thon', 'bang'];
+    districts.forEach(function(district) {
+      var tsTemp = thingSpeakTemps[district];
+      var owmTemp = owmTemps[district];
+      
+      if (tsTemp !== null && owmTemp !== null) {
+        // Both sources available - average them
+        dataState[district].temp = (tsTemp + owmTemp) / 2;
+        console.log(district + ' temp: TS=' + tsTemp.toFixed(1) + '°C, OWM=' + owmTemp.toFixed(1) + '°C, Avg=' + dataState[district].temp.toFixed(1) + '°C');
+      } else if (tsTemp !== null) {
+        // Only ThingSpeak available
+        dataState[district].temp = tsTemp;
+        console.log(district + ' temp: Using ThingSpeak only (' + tsTemp.toFixed(1) + '°C)');
+      } else if (owmTemp !== null) {
+        // Only OpenWeatherMap available
+        dataState[district].temp = owmTemp;
+        console.log(district + ' temp: Using OpenWeatherMap only (' + owmTemp.toFixed(1) + '°C)');
+      } else {
+        // ไม่มีข้อมูลจากทั้งสองแหล่ง
+        dataState[district].temp = null;
+        console.log(district + ' temp: No data available');
+      }
+    });
+    
     render();
   }).catch(function(err) {
-    console.warn('ThingSpeak Temp fetch error:', err);
+    console.warn('Temperature fetch error:', err);
     render();
   });
 }
