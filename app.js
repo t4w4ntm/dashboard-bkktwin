@@ -22,6 +22,38 @@ function setGauge(fillId, value){
   if (el) el.style.strokeDashoffset = offset;
 }
 
+// ===== Progress Bar Controller (Unity-style Circular Gauge) =====
+function setProgressBar(fillId, aqiValue){
+  var el = document.getElementById(fillId);
+  if (!el) return;
+  
+  // คำนวณ stroke-dashoffset จาก AQI (0-500)
+  // ครึ่งวงกลม (semicircle arc length) ≈ 125.6
+  var maxLen = 125.6; // half circle arc length
+  var percentage = Math.min(100, (aqiValue / 500) * 100);
+  var offset = maxLen - (percentage / 100) * maxLen;
+  
+  // กำหนด class สำหรับสีตาม AQI level
+  el.classList.remove('good', 'moderate', 'usg', 'unhealthy', 'very-unhealthy', 'hazardous');
+  
+  if (aqiValue <= 50) {
+    el.classList.add('good');
+  } else if (aqiValue <= 100) {
+    el.classList.add('moderate');
+  } else if (aqiValue <= 150) {
+    el.classList.add('usg');
+  } else if (aqiValue <= 200) {
+    el.classList.add('unhealthy');
+  } else if (aqiValue <= 300) {
+    el.classList.add('very-unhealthy');
+  } else {
+    el.classList.add('hazardous');
+  }
+  
+  // อัพเดท stroke-dashoffset
+  el.style.strokeDashoffset = offset;
+}
+
 // ======== DATA STATE ========
 // default demo values (will be replaced by ThingSpeak if configured)
 var dataState = {
@@ -55,6 +87,16 @@ var OPENWEATHERMAP = {
     klong: "Khlong San",
     thon: "Thon Buri",
     bang: "Bang Rak"
+  }
+};
+
+// ======== WAQI CONFIG ========
+var WAQI = {
+  token: "75a1a645825e299fdd790d95235ca5192ef92d87",
+  stations: {
+    klong: "bangkok",  // ใช้สถานีกรุงเทพฯ สำหรับ Khlong San
+    thon: "bangkok",   // ใช้สถานีกรุงเทพฯ สำหรับ Thon Buri  
+    bang: "bangkok"    // ใช้สถานีกรุงเทพฯ สำหรับ Bang Rak
   }
 };
 
@@ -826,6 +868,11 @@ function render(){
   setGauge('fillThon',  Math.min(100, dataState.thon.aqi/2));
   setGauge('fillBang',  Math.min(100, dataState.bang.aqi/2));
 
+  // Update Progress Bars (Unity-style)
+  setProgressBar('progressFillKlong', dataState.klong.aqi);
+  setProgressBar('progressFillThon', dataState.thon.aqi);
+  setProgressBar('progressFillBang', dataState.bang.aqi);
+
   // AQI numbers on gauges - แสดง --- ถ้าไม่มีข้อมูล
   var aqiK = document.getElementById('aqiKlong');
   var aqiT = document.getElementById('aqiThon');
@@ -936,6 +983,27 @@ function fetchLastField(config){
 }
 
 
+// ===== WAQI API Fetcher =====
+function fetchWAQI_PM25(stationName){
+  var url = 'https://api.waqi.info/feed/' + encodeURIComponent(stationName) + 
+            '/?token=' + WAQI.token;
+  
+  return fetch(url, { cache: 'no-store' })
+    .then(function(response) {
+      if (!response.ok) {
+        throw new Error('WAQI API error: ' + response.status);
+      }
+      return response.json();
+    })
+    .then(function(data) {
+      if (data && data.status === 'ok' && data.data && data.data.iaqi && data.data.iaqi.pm25) {
+        // WAQI returns PM2.5 value in data.data.iaqi.pm25.v
+        return data.data.iaqi.pm25.v;
+      }
+      throw new Error('Invalid PM2.5 data from WAQI');
+    });
+}
+
 function pollThingSpeak(){
   // เรียก pollThingSpeakPM และ pollThingSpeakTemp แยกกัน
   pollThingSpeakPM();
@@ -945,47 +1013,99 @@ function pollThingSpeak(){
 // Split pollers for separate control
 function pollThingSpeakPM(){
   var promises = [];
+  var waqiPromises = [];
+  var thingSpeakPM = { klong: null, thon: null, bang: null };
+  var waqiPM = { klong: null, thon: null, bang: null };
   
+  // Fetch from ThingSpeak
   if(THINGSPEAK.klong_pm25.channelId && THINGSPEAK.klong_pm25.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.klong_pm25.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.klong_pm25).then(function(value) {
-        dataState.klong.pm25 = value;
+        thingSpeakPM.klong = value;
       }).catch(function(err) {
         console.warn('Klong San PM2.5 fetch failed:', err.message);
-        dataState.klong.pm25 = null; // ตั้งค่าเป็น null เมื่อไม่มีข้อมูล
       })
     );
-  } else {
-    dataState.klong.pm25 = null; // ไม่มี field ที่กำหนด
   }
   
   if(THINGSPEAK.thon_pm25.channelId && THINGSPEAK.thon_pm25.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.thon_pm25.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.thon_pm25).then(function(value) {
-        dataState.thon.pm25 = value;
+        thingSpeakPM.thon = value;
       }).catch(function(err) {
         console.warn('Thon Buri PM2.5 fetch failed:', err.message);
-        dataState.thon.pm25 = null; // ตั้งค่าเป็น null เมื่อไม่มีข้อมูล
       })
     );
-  } else {
-    dataState.thon.pm25 = null; // ไม่มี field ที่กำหนด
   }
   
   if(THINGSPEAK.bang_pm25.channelId && THINGSPEAK.bang_pm25.channelId !== "YOUR_CHANNEL_ID" && THINGSPEAK.bang_pm25.field > 0){
     promises.push(
       fetchLastField(THINGSPEAK.bang_pm25).then(function(value) {
-        dataState.bang.pm25 = value;
+        thingSpeakPM.bang = value;
       }).catch(function(err) {
         console.warn('Bang Rak PM2.5 fetch failed:', err.message);
-        dataState.bang.pm25 = null; // ตั้งค่าเป็น null เมื่อไม่มีข้อมูล
       })
     );
-  } else {
-    dataState.bang.pm25 = null; // ไม่มี field ที่กำหนด
   }
   
-  Promise.all(promises).then(function() {
+  // Fetch from WAQI - เฉพาะเขตที่มี ThingSpeak field > 0
+  if(THINGSPEAK.klong_pm25.field > 0) {
+    waqiPromises.push(
+      fetchWAQI_PM25(WAQI.stations.klong).then(function(pm25) {
+        waqiPM.klong = pm25;
+      }).catch(function(err) {
+        console.warn('WAQI klong PM2.5 fetch failed:', err);
+      })
+    );
+  }
+  
+  if(THINGSPEAK.thon_pm25.field > 0) {
+    waqiPromises.push(
+      fetchWAQI_PM25(WAQI.stations.thon).then(function(pm25) {
+        waqiPM.thon = pm25;
+      }).catch(function(err) {
+        console.warn('WAQI thon PM2.5 fetch failed:', err);
+      })
+    );
+  }
+  
+  if(THINGSPEAK.bang_pm25.field > 0) {
+    waqiPromises.push(
+      fetchWAQI_PM25(WAQI.stations.bang).then(function(pm25) {
+        waqiPM.bang = pm25;
+      }).catch(function(err) {
+        console.warn('WAQI bang PM2.5 fetch failed:', err);
+      })
+    );
+  }
+  
+  // Wait for both ThingSpeak and WAQI
+  Promise.all([Promise.all(promises), Promise.all(waqiPromises)]).then(function() {
+    // Calculate average: (ThingSpeak + WAQI) / 2
+    var districts = ['klong', 'thon', 'bang'];
+    districts.forEach(function(district) {
+      var tsPM = thingSpeakPM[district];
+      var waqiPMValue = waqiPM[district];
+      
+      if (tsPM !== null && waqiPMValue !== null) {
+        // Both sources available - average them
+        dataState[district].pm25 = (tsPM + waqiPMValue) / 2;
+        console.log(district + ' PM2.5: TS=' + tsPM.toFixed(1) + ', WAQI=' + waqiPMValue.toFixed(1) + ', Avg=' + dataState[district].pm25.toFixed(1));
+      } else if (tsPM !== null) {
+        // Only ThingSpeak available
+        dataState[district].pm25 = tsPM;
+        console.log(district + ' PM2.5: Using ThingSpeak only (' + tsPM.toFixed(1) + ')');
+      } else if (waqiPMValue !== null) {
+        // Only WAQI available
+        dataState[district].pm25 = waqiPMValue;
+        console.log(district + ' PM2.5: Using WAQI only (' + waqiPMValue.toFixed(1) + ')');
+      } else {
+        // No data from either source
+        dataState[district].pm25 = null;
+        console.log(district + ' PM2.5: No data available');
+      }
+    });
+    
     render();
   }).catch(function(err) {
     console.warn('ThingSpeak PM fetch error:', err);

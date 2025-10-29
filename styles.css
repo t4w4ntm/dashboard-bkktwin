@@ -476,6 +476,80 @@ body {
   flex-shrink: 0;
 }
 
+/* ===== Progress Bar (Unity-style Circular Gauge) ===== */
+.progress-container {
+  width: 100%;
+  margin: 12px auto 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.progress-bar {
+  position: relative;
+  width: 160px;
+  height: 90px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.progress-bar svg {
+  width: 100%;
+  height: 100%;
+  /* Remove rotation - display as semicircle on top */
+}
+
+.progress-track {
+  fill: none;
+  stroke: rgba(14, 25, 40, 0.8);
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+
+.progress-fill {
+  fill: none;
+  stroke: #1dd196;
+  stroke-width: 14;
+  stroke-linecap: round;
+  stroke-dasharray: 125.6;
+  stroke-dashoffset: 125.6;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+              stroke 0.3s ease;
+  filter: drop-shadow(0 0 4px rgba(29, 209, 150, 0.3));
+}
+
+/* Color variations based on AQI levels */
+.progress-fill.good {
+  stroke: #1dd196;
+  filter: drop-shadow(0 0 4px rgba(29, 209, 150, 0.3));
+}
+
+.progress-fill.moderate {
+  stroke: #f4c742;
+  filter: drop-shadow(0 0 4px rgba(244, 199, 66, 0.3));
+}
+
+.progress-fill.usg {
+  stroke: #ff9f40;
+  filter: drop-shadow(0 0 4px rgba(255, 159, 64, 0.3));
+}
+
+.progress-fill.unhealthy {
+  stroke: #ff6384;
+  filter: drop-shadow(0 0 4px rgba(255, 99, 132, 0.3));
+}
+
+.progress-fill.very-unhealthy {
+  stroke: #9966ff;
+  filter: drop-shadow(0 0 4px rgba(153, 102, 255, 0.3));
+}
+
+.progress-fill.hazardous {
+  stroke: #7e5757;
+  filter: drop-shadow(0 0 4px rgba(126, 87, 87, 0.3));
+}
+
 .gauge {
   position: relative;
   width: 100%;

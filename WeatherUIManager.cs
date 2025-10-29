@@ -88,21 +88,17 @@ public class WeatherUIManager : MonoBehaviour
     [Header("ThingSpeak Settings")]
     [SerializeField] private string thingSpeakChannelId = "3027679";
     [SerializeField] private string thingSpeakReadKey = "4M306YRQZ87072KV";
-    [SerializeField] private int klongTempField = 4;
-    [SerializeField] private int thonTempField = 4;
-    [SerializeField] private int bangTempField = 4;
+    [SerializeField] private int klongTempField = 4;  // มีข้อมูล
+    [SerializeField] private int thonTempField = 0;   // ไม่มีข้อมูล
+    [SerializeField] private int bangTempField = 0;   // ไม่มีข้อมูล
     
     private readonly string[] locationNames = { "Khlong San", "Thon Buri", "Bang Rak" };
     private Text[] temperatureTexts;
     private DistrictColorElements[] districtColorElements;
-    private float[] currentTemperatures = new float[3]; // เก็บอุณหภูมิปัจจุบันของแต่ละเขต (ค่าเฉลี่ย)
+    private float[] currentTemperatures = new float[3] { -1f, -1f, -1f }; // เก็บอุณหภูมิปัจจุบันของแต่ละเขต (ค่าเฉลี่ย) - เริ่มต้นที่ -1 (ไม่มีข้อมูล)
     private float[] openWeatherTemps = new float[3]; // อุณหภูมิจาก OpenWeatherMap
     private float[] thingSpeakTemps = new float[3]; // อุณหภูมิจาก ThingSpeak
     private int temperatureDataCount = 0; // นับจำนวนข้อมูลที่ได้รับแล้ว
-    
-    // Cache ข้อมูลอุณหภูมิล่าสุด
-    private static float[] cachedTemperatures = { 28.5f, 29.2f, 30.1f }; // ค่าเริ่มต้น
-    private static bool hasValidCache = false;
     
     void Start()
     {
@@ -130,34 +126,22 @@ public class WeatherUIManager : MonoBehaviour
     
     private void SetInitialTemperatures()
     {
-        // ใช้ cache หรือค่าเริ่มต้น
-        if (hasValidCache)
-        {
-            for (int i = 0; i < cachedTemperatures.Length && i < currentTemperatures.Length; i++)
-            {
-                currentTemperatures[i] = cachedTemperatures[i];
-            }
-        }
-        else
-        {
-            // ใช้ค่าเริ่มต้น
-            currentTemperatures[0] = 28.5f; // Khlong San
-            currentTemperatures[1] = 29.2f; // Thon Buri  
-            currentTemperatures[2] = 30.1f; // Bang Rak
-        }
+        // ตั้งค่าเริ่มต้น - เฉพาะที่มีข้อมูล
+        currentTemperatures[0] = -1f; // Khlong San - รอดึงข้อมูลจริง
+        currentTemperatures[1] = -1f; // Thon Buri - ไม่มีข้อมูล
+        currentTemperatures[2] = -1f; // Bang Rak - ไม่มีข้อมูล
         
-        // แสดงค่าทันที
+        // แสดง N/A ทั้งหมดก่อนดึงข้อมูล
         for (int i = 0; i < currentTemperatures.Length; i++)
         {
             if (temperatureTexts[i] != null)
             {
-                temperatureTexts[i].text = currentTemperatures[i].ToString("F1") + "°C";
+                temperatureTexts[i].text = "N/A";
             }
-            UpdateTemperatureColors(currentTemperatures[i], i);
         }
         
         // อัพเดทอุณหภูมิเฉลี่ย
-        temperatureDataCount = currentTemperatures.Length;
+        temperatureDataCount = 0;
         UpdateAverageTemperature();
     }
     
@@ -180,18 +164,24 @@ public class WeatherUIManager : MonoBehaviour
         // รีเซ็ตตัวนับข้อมูลอุณหภูมิ
         temperatureDataCount = 0;
         
-        // เริ่มดึงข้อมูลจาก OpenWeatherMap ทั้ง 3 เขตพร้อมกัน
+        // เริ่มดึงข้อมูลจาก OpenWeatherMap และ ThingSpeak เฉพาะเขตที่มี field > 0
         List<Coroutine> weatherCoroutines = new List<Coroutine>();
+        int[] tempFields = { klongTempField, thonTempField, bangTempField };
+        
         for (int i = 0; i < locationNames.Length; i++)
         {
-            weatherCoroutines.Add(StartCoroutine(GetOpenWeatherMapData(locationNames[i], i)));
-        }
-        
-        // ดึงข้อมูลจาก ThingSpeak พร้อมกัน
-        int[] tempFields = { klongTempField, thonTempField, bangTempField };
-        for (int i = 0; i < tempFields.Length; i++)
-        {
-            weatherCoroutines.Add(StartCoroutine(GetThingSpeakData(tempFields[i], i)));
+            // ดึงข้อมูลเฉพาะเขตที่มี ThingSpeak field
+            if (tempFields[i] > 0)
+            {
+                weatherCoroutines.Add(StartCoroutine(GetOpenWeatherMapData(locationNames[i], i)));
+                weatherCoroutines.Add(StartCoroutine(GetThingSpeakData(tempFields[i], i)));
+            }
+            else
+            {
+                // ไม่มีข้อมูล - ตั้งค่าเป็น 0
+                openWeatherTemps[i] = 0f;
+                thingSpeakTemps[i] = 0f;
+            }
         }
         
         // รอให้ทุก coroutine เสร็จสิ้น
@@ -285,49 +275,64 @@ public class WeatherUIManager : MonoBehaviour
     private void CalculateAverageTemperatures()
     {
         string[] districtNames = { "Khlong San", "Thon Buri", "Bang Rak" };
+        int[] tempFields = { klongTempField, thonTempField, bangTempField };
         
         for (int i = 0; i < 3; i++)
         {
             float owmTemp = openWeatherTemps[i];
             float tsTemp = thingSpeakTemps[i];
             
-            if (owmTemp > 0 && tsTemp > 0)
+            // ตรวจสอบว่าเขตนี้มีข้อมูลหรือไม่ (field > 0)
+            if (tempFields[i] > 0)
             {
-                // ทั้งสองแหล่งมีข้อมูล - คำนวณค่าเฉลี่ย
-                currentTemperatures[i] = (owmTemp + tsTemp) / 2f;
-                
-                Debug.Log($"<color=green>{districtNames[i]} Average: OWM={owmTemp:F1}°C + TS={tsTemp:F1}°C = {currentTemperatures[i]:F1}°C</color>");
-            }
-            else if (owmTemp > 0)
-            {
-                // มีเฉพาะ OpenWeatherMap
-                currentTemperatures[i] = owmTemp;
-                Debug.Log($"{districtNames[i]}: Using OpenWeatherMap only ({owmTemp:F1}°C)");
-            }
-            else if (tsTemp > 0)
-            {
-                // มีเฉพาะ ThingSpeak
-                currentTemperatures[i] = tsTemp;
-                Debug.Log($"{districtNames[i]}: Using ThingSpeak only ({tsTemp:F1}°C)");
+                if (owmTemp > 0 && tsTemp > 0)
+                {
+                    // ทั้งสองแหล่งมีข้อมูล - คำนวณค่าเฉลี่ย
+                    currentTemperatures[i] = (owmTemp + tsTemp) / 2f;
+                    
+                    Debug.Log($"<color=green>{districtNames[i]} Average: OWM={owmTemp:F1}°C + TS={tsTemp:F1}°C = {currentTemperatures[i]:F1}°C</color>");
+                }
+                else if (owmTemp > 0)
+                {
+                    // มีเฉพาะ OpenWeatherMap
+                    currentTemperatures[i] = owmTemp;
+                    Debug.Log($"{districtNames[i]}: Using OpenWeatherMap only ({owmTemp:F1}°C)");
+                }
+                else if (tsTemp > 0)
+                {
+                    // มีเฉพาะ ThingSpeak
+                    currentTemperatures[i] = tsTemp;
+                    Debug.Log($"{districtNames[i]}: Using ThingSpeak only ({tsTemp:F1}°C)");
+                }
+                else
+                {
+                    // ไม่มีข้อมูลจากทั้งสองแหล่ง แต่ควรมี - ตั้งเป็น -1
+                    currentTemperatures[i] = -1f;
+                    Debug.LogWarning($"{districtNames[i]}: No data from both sources");
+                }
             }
             else
             {
-                // ไม่มีข้อมูลจากทั้งสองแหล่ง - ใช้ค่าเดิม
-                Debug.LogWarning($"{districtNames[i]}: No data from both sources, keeping previous value ({currentTemperatures[i]:F1}°C)");
+                // ไม่มีข้อมูลสำหรับเขตนี้ - ตั้งเป็น -1
+                currentTemperatures[i] = -1f;
+                Debug.Log($"{districtNames[i]}: No data configured (field = 0)");
             }
             
             // แสดงอุณหภูมิ
             if (temperatureTexts[i] != null)
             {
-                temperatureTexts[i].text = currentTemperatures[i].ToString("F1") + "°C";
+                if (currentTemperatures[i] >= 0)
+                {
+                    temperatureTexts[i].text = currentTemperatures[i].ToString("F1") + "°C";
+                    // เปลี่ยนสีตามอุณหภูมิ
+                    UpdateTemperatureColors(currentTemperatures[i], i);
+                }
+                else
+                {
+                    temperatureTexts[i].text = "N/A";
+                    // ไม่เปลี่ยนสีสำหรับไม่มีข้อมูล
+                }
             }
-            
-            // เปลี่ยนสีตามอุณหภูมิ
-            UpdateTemperatureColors(currentTemperatures[i], i);
-            
-            // Cache ข้อมูลล่าสุด
-            cachedTemperatures[i] = currentTemperatures[i];
-            hasValidCache = true;
         }
         
         // อัพเดทอุณหภูมิเฉลี่ยของทั้ง 3 เขต

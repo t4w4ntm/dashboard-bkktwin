@@ -14,6 +14,33 @@ public class ThingSpeakData
     public string field3; // Bang Rak PM2.5
 }
 
+// <<< เพิ่ม: Class สำหรับข้อมูล WAQI
+[System.Serializable]
+public class WAQIData
+{
+    public string status;
+    public WAQIDataContent data;
+}
+
+[System.Serializable]
+public class WAQIDataContent
+{
+    public int aqi;
+    public WAQIIaqi iaqi;
+}
+
+[System.Serializable]
+public class WAQIIaqi
+{
+    public WAQIPollutant pm25;
+}
+
+[System.Serializable]
+public class WAQIPollutant
+{
+    public float v; // PM2.5 value
+}
+
 public class AirQualityMonitor : MonoBehaviour
 {
     [Header("UI Elements")]
@@ -36,6 +63,8 @@ public class AirQualityMonitor : MonoBehaviour
     [Header("Settings")]
     // <<< แก้ไข: เปลี่ยน URL ให้ดึงทุก Field พร้อมกัน
     [SerializeField] private string thingSpeakURL = "https://api.thingspeak.com/channels/3027679/feeds/last.json?api_key=4M306YRQZ87072KV";
+    [SerializeField] private string waqiToken = "75a1a645825e299fdd790d95235ca5192ef92d87";
+    [SerializeField] private string waqiStation = "bangkok"; // สถานีกรุงเทพฯ
     [SerializeField] private float updateInterval = 15f; // อัพเดททุก 15 วินาที (เหมือนเว็บ)
     [SerializeField] private float animationSpeed = 0.5f;
     
@@ -50,10 +79,13 @@ public class AirQualityMonitor : MonoBehaviour
     private float animationTime = 0f;
     private bool isAnimating = false;
     
-    // Cache ข้อมูลล่าสุด
-    private static float[] cachedPM25 = { 12.0f, 18.0f, 25.0f }; // ค่าเริ่มต้น
+    // Cache ข้อมูลล่าสุด - เฉพาะ Klong San มีข้อมูล
+    private static float[] cachedPM25 = { 12.0f, -1f, -1f }; // -1 = ไม่มีข้อมูล
     private static float[] cachedAQI = { 0f, 0f, 0f };
     private static bool hasValidCache = false;
+    
+    // กำหนด field ที่มีข้อมูล (0 = ไม่มีข้อมูล)
+    private int[] availableFields = { 1, 0, 0 }; // เฉพาะ Field 1 (Klong San) มีข้อมูล
     
     void Start()
     {
@@ -90,14 +122,21 @@ public class AirQualityMonitor : MonoBehaviour
         }
         else
         {
-            // แสดงค่าเริ่มต้นก่อนดึงข้อมูลจริง
-            currentPM25Values[0] = 12.0f; // Klong San
-            currentPM25Values[1] = 18.0f; // Thon Buri
-            currentPM25Values[2] = 25.0f; // Bang Rak
+            // แสดงค่าเริ่มต้นก่อนดึงข้อมูลจริง - เฉพาะที่มีข้อมูล
+            currentPM25Values[0] = 12.0f;  // Klong San - มีข้อมูล
+            currentPM25Values[1] = -1f;    // Thon Buri - ไม่มีข้อมูล
+            currentPM25Values[2] = -1f;    // Bang Rak - ไม่มีข้อมูล
             
             for (int i = 0; i < 3; i++)
             {
-                currentAQIValues[i] = CalculateAQI(currentPM25Values[i]);
+                if (currentPM25Values[i] >= 0)
+                {
+                    currentAQIValues[i] = CalculateAQI(currentPM25Values[i]);
+                }
+                else
+                {
+                    currentAQIValues[i] = -1; // ไม่มีข้อมูล
+                }
             }
             
             UpdateAllUI();
@@ -142,78 +181,153 @@ public class AirQualityMonitor : MonoBehaviour
     
     private IEnumerator FetchAirQualityData()
     {
-        using (UnityWebRequest request = UnityWebRequest.Get(thingSpeakURL))
+        // ดึงข้อมูลจาก ThingSpeak และ WAQI พร้อมกัน
+        UnityWebRequest thingSpeakRequest = UnityWebRequest.Get(thingSpeakURL);
+        string waqiURL = $"https://api.waqi.info/feed/{waqiStation}/?token={waqiToken}";
+        UnityWebRequest waqiRequest = UnityWebRequest.Get(waqiURL);
+        
+        // ส่ง request ทั้งสอง
+        yield return thingSpeakRequest.SendWebRequest();
+        yield return waqiRequest.SendWebRequest();
+        
+        float[] thingSpeakPM25 = { -1f, -1f, -1f };
+        float waqiPM25 = -1f;
+        
+        // ดึงข้อมูลจาก ThingSpeak
+        if (thingSpeakRequest.result == UnityWebRequest.Result.Success)
         {
-            yield return request.SendWebRequest();
-            
-            if (request.result == UnityWebRequest.Result.Success)
+            try
             {
-                try
+                string jsonResponse = thingSpeakRequest.downloadHandler.text;
+                
+                if (!string.IsNullOrEmpty(jsonResponse) && jsonResponse.StartsWith("{"))
                 {
-                    string jsonResponse = request.downloadHandler.text;
+                    ThingSpeakData thingSpeakData = JsonUtility.FromJson<ThingSpeakData>(jsonResponse);
                     
-                    // ตรวจสอบว่าได้ข้อมูลมาหรือไม่
-                    if (!string.IsNullOrEmpty(jsonResponse) && jsonResponse.StartsWith("{"))
+                    string[] fields = { thingSpeakData.field1, thingSpeakData.field2, thingSpeakData.field3 };
+                    
+                    for (int i = 0; i < 3; i++)
                     {
-                        ThingSpeakData thingSpeakData = JsonUtility.FromJson<ThingSpeakData>(jsonResponse);
-                        
-                        string[] districtNames = { "Klong San", "Thon Buri", "Bang Rak" };
-                        string[] fields = { thingSpeakData.field1, thingSpeakData.field2, thingSpeakData.field3 };
-                        
-                        bool hasAnyValidData = false;
-                        
-                        // แปลงและเก็บค่า PM2.5 ทั้ง 3 เขต
-                        for (int i = 0; i < 3; i++)
+                        if (availableFields[i] > 0 && float.TryParse(fields[i], out float pm25Value))
                         {
-                            if (float.TryParse(fields[i], out float pm25Value))
-                            {
-                                currentPM25Values[i] = pm25Value;
-                                currentAQIValues[i] = CalculateAQI(pm25Value);
-                                
-                                // Cache ข้อมูลล่าสุด
-                                cachedPM25[i] = pm25Value;
-                                cachedAQI[i] = currentAQIValues[i];
-                                
-                                hasAnyValidData = true;
-                                
-                                Debug.Log($"{districtNames[i]} - PM2.5: {pm25Value:F1} µg/m³, AQI: {currentAQIValues[i]:F0}");
-                            }
-                            else
-                            {
-                                Debug.LogWarning($"Failed to parse PM2.5 value for {districtNames[i]}: {fields[i]}");
-                            }
+                            thingSpeakPM25[i] = pm25Value;
+                            Debug.Log($"ThingSpeak District {i}: PM2.5 = {pm25Value:F1} µg/m³");
                         }
-                        
-                        if (hasAnyValidData)
-                        {
-                            hasValidCache = true;
-                            UpdateAllUI();
-                            Debug.Log("Successfully fetched data for all districts");
-                        }
-                        else
-                        {
-                            Debug.LogError("No valid PM2.5 data from any district");
-                            SetErrorState();
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogError("Empty or invalid JSON response from ThingSpeak");
-                        SetErrorState();
                     }
                 }
-                catch (System.Exception e)
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error parsing ThingSpeak data: {e.Message}");
+            }
+        }
+        else
+        {
+            Debug.LogError($"Error fetching ThingSpeak data: {thingSpeakRequest.error}");
+        }
+        
+        // ดึงข้อมูลจาก WAQI
+        if (waqiRequest.result == UnityWebRequest.Result.Success)
+        {
+            try
+            {
+                string jsonResponse = waqiRequest.downloadHandler.text;
+                
+                if (!string.IsNullOrEmpty(jsonResponse) && jsonResponse.StartsWith("{"))
                 {
-                    Debug.LogError($"Error parsing air quality data: {e.Message}");
-                    SetErrorState();
+                    WAQIData waqiData = JsonUtility.FromJson<WAQIData>(jsonResponse);
+                    
+                    if (waqiData.status == "ok" && waqiData.data != null && waqiData.data.iaqi != null && waqiData.data.iaqi.pm25 != null)
+                    {
+                        waqiPM25 = waqiData.data.iaqi.pm25.v;
+                        Debug.Log($"WAQI: PM2.5 = {waqiPM25:F1} µg/m³");
+                    }
                 }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error parsing WAQI data: {e.Message}");
+            }
+        }
+        else
+        {
+            Debug.LogError($"Error fetching WAQI data: {waqiRequest.error}");
+        }
+        
+        // คำนวณค่าเฉลี่ย: (ThingSpeak + WAQI) / 2
+        string[] districtNames = { "Klong San", "Thon Buri", "Bang Rak" };
+        bool hasAnyValidData = false;
+        
+        for (int i = 0; i < 3; i++)
+        {
+            float tsPM = thingSpeakPM25[i];
+            float finalPM25 = -1f;
+            
+            // เฉพาะเขตที่มีการตั้งค่า (availableFields[i] > 0)
+            if (availableFields[i] > 0)
+            {
+                if (tsPM >= 0 && waqiPM25 >= 0)
+                {
+                    // มีข้อมูลทั้งสองแหล่ง - คำนวณค่าเฉลี่ย
+                    finalPM25 = (tsPM + waqiPM25) / 2f;
+                    Debug.Log($"{districtNames[i]}: TS={tsPM:F1}, WAQI={waqiPM25:F1}, Avg={finalPM25:F1} µg/m³");
+                }
+                else if (tsPM >= 0)
+                {
+                    // มีเฉพาะ ThingSpeak
+                    finalPM25 = tsPM;
+                    Debug.Log($"{districtNames[i]}: Using ThingSpeak only ({tsPM:F1} µg/m³)");
+                }
+                else if (waqiPM25 >= 0)
+                {
+                    // มีเฉพาะ WAQI
+                    finalPM25 = waqiPM25;
+                    Debug.Log($"{districtNames[i]}: Using WAQI only ({waqiPM25:F1} µg/m³)");
+                }
+                else
+                {
+                    // ไม่มีข้อมูลทั้งสองแหล่ง
+                    Debug.Log($"{districtNames[i]}: No data available");
+                }
+            }
+            
+            // อัพเดทค่า
+            if (finalPM25 >= 0)
+            {
+                currentPM25Values[i] = finalPM25;
+                currentAQIValues[i] = CalculateAQI(finalPM25);
+                
+                // Cache ข้อมูลล่าสุด
+                cachedPM25[i] = finalPM25;
+                cachedAQI[i] = currentAQIValues[i];
+                
+                hasAnyValidData = true;
             }
             else
             {
-                Debug.LogError($"Error fetching air quality data: {request.error}");
-                SetErrorState();
+                // ไม่มีข้อมูลสำหรับเขตนี้
+                currentPM25Values[i] = -1f;
+                currentAQIValues[i] = -1f;
+                cachedPM25[i] = -1f;
+                cachedAQI[i] = -1f;
             }
         }
+        
+        if (hasAnyValidData)
+        {
+            hasValidCache = true;
+            UpdateAllUI();
+            Debug.Log("Successfully fetched and averaged data from ThingSpeak + WAQI");
+        }
+        else
+        {
+            Debug.LogError("No valid PM2.5 data from any source");
+            SetErrorState();
+        }
+        
+        // Cleanup
+        thingSpeakRequest.Dispose();
+        waqiRequest.Dispose();
     }
     
     private int CalculateAQI(float pm25)
@@ -249,20 +363,35 @@ public class AirQualityMonitor : MonoBehaviour
         
         for (int i = 0; i < 3; i++)
         {
-            // อัพเดท AQI Text
-            if (aqiTexts[i] != null)
-                aqiTexts[i].text = currentAQIValues[i].ToString("F0");
-            
-            // อัพเดท PM2.5 Text
-            if (ugm3Texts[i] != null)
-                ugm3Texts[i].text = currentPM25Values[i].ToString("F1");
-            
-            // อัพเดท Status Text
-            if (statusTexts[i] != null)
-                statusTexts[i].text = GetQualityStatus(currentPM25Values[i]);
-            
-            // คำนวณ Fill Amount
-            targetFillAmounts[i] = Mathf.Clamp01(currentAQIValues[i] / 500f);
+            // ตรวจสอบว่ามีข้อมูลหรือไม่
+            if (currentPM25Values[i] >= 0 && currentAQIValues[i] >= 0)
+            {
+                // มีข้อมูล - แสดงค่าปกติ
+                if (aqiTexts[i] != null)
+                    aqiTexts[i].text = currentAQIValues[i].ToString("F0");
+                
+                if (ugm3Texts[i] != null)
+                    ugm3Texts[i].text = currentPM25Values[i].ToString("F1");
+                
+                if (statusTexts[i] != null)
+                    statusTexts[i].text = GetQualityStatus(currentPM25Values[i]);
+                
+                targetFillAmounts[i] = Mathf.Clamp01(currentAQIValues[i] / 500f);
+            }
+            else
+            {
+                // ไม่มีข้อมูล - แสดง N/A
+                if (aqiTexts[i] != null)
+                    aqiTexts[i].text = "---";
+                
+                if (ugm3Texts[i] != null)
+                    ugm3Texts[i].text = "N/A";
+                
+                if (statusTexts[i] != null)
+                    statusTexts[i].text = "No Data";
+                
+                targetFillAmounts[i] = 0f;
+            }
         }
         
         if (enableAnimation)
