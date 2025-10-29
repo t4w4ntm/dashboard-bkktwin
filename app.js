@@ -35,7 +35,7 @@ var dataState = {
 // คุณสามารถใช้ Channel เดียวหลายฟิลด์หรือคนละ Channel ก็ได้
 var THINGSPEAK = {
   // PM2.5 per district - ตาม ThingSpeak Channel ที่มี Field 1, 2, 3 เป็น PM2.5
-  klong_pm25: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 2 },
+  klong_pm25: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 1 },
   thon_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
   bang_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
 
