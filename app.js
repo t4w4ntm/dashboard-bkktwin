@@ -68,13 +68,13 @@ var dataState = {
 var THINGSPEAK = {
   // PM2.5 per district - ตาม ThingSpeak Channel ที่มี Field 1, 2, 3 เป็น PM2.5
   klong_pm25: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 1 },
-  thon_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
-  bang_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
+  thon_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 2 }, // ยังไม่มีข้อมูล
+  bang_pm25:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 3 }, // ยังไม่มีข้อมูล
 
   // Temperature per district (°C) - ใช้ channelId 3027679 เช่นกัน
   klong_temp: { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 4 },
-  thon_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
-  bang_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 0 }, // ยังไม่มีข้อมูล
+  thon_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 5 }, // ยังไม่มีข้อมูล
+  bang_temp:  { channelId: "3027679", readKey: "4M306YRQZ87072KV", field: 6 }, // ยังไม่มีข้อมูล
 
   // refresh period (ms)
   intervalMs: 15000 // 15 วินาที
