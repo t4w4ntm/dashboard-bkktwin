@@ -520,6 +520,11 @@ body {
 }
 
 /* Color variations based on AQI levels */
+.progress-fill.very-good {
+  stroke: #4fa8e8;
+  filter: drop-shadow(0 0 4px rgba(79, 168, 232, 0.3));
+}
+
 .progress-fill.good {
   stroke: #1dd196;
   filter: drop-shadow(0 0 4px rgba(29, 209, 150, 0.3));
